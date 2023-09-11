@@ -45,13 +45,18 @@
     background-color: #3183ff;
     padding: 12px 0;
     font-size: 18px;
+    cursor: pointer;
 }
 
 .taskContainer {
+    margin: 0 auto;
     margin-top: 34px;
     padding: 0 18px;
     max-width: 1024px;
+    width: 100%;
+    
     display: flex;
+    justify-content: center;
     flex-direction: column;
 }
 
