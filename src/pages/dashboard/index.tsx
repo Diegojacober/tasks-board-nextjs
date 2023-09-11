@@ -5,10 +5,11 @@ import TextArea from '@/components/TextArea';
 import Head from 'next/head';
 import { FiShare2 } from 'react-icons/fi';
 import { FaTrash } from 'react-icons/fa';
-import { ChangeEvent, FormEvent, useState } from 'react';
+import { ChangeEvent, FormEvent, useEffect, useState } from 'react';
 
 import { db } from '@/services/firebaseConnection';
-import { addDoc, collection } from 'firebase/firestore';
+import { addDoc, collection, orderBy, where, onSnapshot, query, doc, deleteDoc } from 'firebase/firestore';
+import Link from 'next/link';
 
 interface HomeProps {
     user: {
@@ -16,10 +17,19 @@ interface HomeProps {
     }
 }
 
+interface TaskProps {
+    id: string,
+    created: Date,
+    public: boolean,
+    tarefa: string,
+    user: string
+}
+
 export default function Dashboard({ user }: HomeProps) {
 
     const [input, setInput] = useState("");
     const [publicTask, setPublicTask] = useState(false);
+    const [tasks, setTasks] = useState<TaskProps[]>([]);
 
     function handleChangePublic(e: ChangeEvent<HTMLInputElement>) {
         setPublicTask(e.target.checked);
@@ -27,8 +37,8 @@ export default function Dashboard({ user }: HomeProps) {
 
     const handleAddTask = async (e: FormEvent) => {
         e.preventDefault();
-        
-        if ( input === "" ) {
+
+        if (input === "") {
             return;
         }
 
@@ -42,10 +52,56 @@ export default function Dashboard({ user }: HomeProps) {
 
             setInput("");
             setPublicTask(false)
-        } catch(err) {
+        } catch (err) {
             console.log(err)
         }
     }
+
+    async function handleShare(id: string) {
+        await navigator.clipboard.writeText(
+            `${process.env.NEXT_PUBLIC_URL}/task/${id}`
+        )
+
+        alert("url copiada com sucesso")
+    }
+
+    async function handleDeleteTask(id: string) {
+        const docRef = doc(db, "tarefas", id)
+
+        await deleteDoc(docRef)
+
+        alert("Tarefa deletada com sucesso")
+        return;
+    }
+
+    useEffect(() => {
+        async function loadTarefas() {
+            const tarefasRef = collection(db, "tarefas")
+
+            const q = query(tarefasRef,
+                orderBy("created", "desc"),
+                where("user", "==", user?.email)
+            )
+
+            onSnapshot(q, (snapshot) => {
+                let list = [] as TaskProps[];
+                snapshot.forEach(doc => {
+                    list.push({
+                        id: doc.id,
+                        created: doc.data().created,
+                        tarefa: doc.data().tarefa,
+                        user: doc.data().user,
+                        public: doc.data().publicTask
+                    })
+                })
+
+                console.log(list)
+                setTasks(list)
+            })
+        }
+
+        loadTarefas();
+    }, [user?.email])
 
     return (
         <div className={style.container}>
@@ -59,7 +115,7 @@ export default function Dashboard({ user }: HomeProps) {
                         <h1 className={style.title}>Qual sua tarefa?</h1>
 
                         <form onSubmit={handleAddTask}>
-                            <TextArea value={input} onChange={(e:ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)} placeholder='Digite a sua tarefa...' />
+                            <TextArea value={input} onChange={(e: ChangeEvent<HTMLTextAreaElement>) => setInput(e.target.value)} placeholder='Digite a sua tarefa...' />
 
                             <div className={style.checkboxArea}>
                                 <input checked={publicTask} onChange={handleChangePublic} type="checkbox" className={style.checkbox} name='checkbox' />
@@ -74,21 +130,31 @@ export default function Dashboard({ user }: HomeProps) {
                 <section className={style.taskContainer}>
                     <h1>Minhas tarefas</h1>
 
-                    <article className={style.task}>
-                        <div className={style.tagContainer}>
-                            <label className={style.tag}>Público</label>
-                            <button className={style.shareButton}>
-                                <FiShare2 size={22} color="#3183ff" />
-                            </button>
-                        </div>
+                    {tasks.map((item) => (
+                        <article key={item.id} className={style.task}>
+                            {item.public && (
+                                <div className={style.tagContainer}>
+                                    <label className={style.tag}>Público</label>
+                                    <button className={style.shareButton} onClick={() => handleShare(item.id)}>
+                                        <FiShare2 size={22} color="#3183ff" />
+                                    </button>
+                                </div>
+                            )}
 
-                        <div className={style.taskContent}>
-                            <p>Minha primeira tarefa de exemplo</p>
-                            <button className={style.trashButton}>
-                                <FaTrash size={24} color="#ea3140" />
-                            </button>
-                        </div>
-                    </article>
+                            <div className={style.taskContent}>
+
+                                {item.public ? (
+                                    <Link href={`/task/${item.id}`}><p>{item.tarefa}</p></Link>
+                                ) : (
+                                    <p>{item.tarefa}</p>
+                                )}
+
+                                <button className={style.trashButton} onClick={() => handleDeleteTask(item.id)}>
+                                    <FaTrash size={24} color="#ea3140" />
+                                </button>
+                            </div>
+                        </article>
+                    ))}
                 </section>
             </main>
         </div>
