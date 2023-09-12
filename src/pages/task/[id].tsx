@@ -3,7 +3,7 @@ import styles from "./style.module.css";
 import { GetServerSideProps } from "next";
 
 import { db } from "@/services/firebaseConnection";
-import { doc, collection, query, where, getDoc, addDoc, getDocs } from "firebase/firestore";
+import { doc, collection, query, where, getDoc, addDoc, getDocs, deleteDoc } from "firebase/firestore";
 import TextArea from "@/components/TextArea";
 import { useSession } from "next-auth/react";
 import { ChangeEvent, FormEvent, useState } from "react";
@@ -69,6 +69,17 @@ export default function Task({ task, allComments }: TaskProps) {
         }
     }
 
+    async function deleteComment(id: string) {
+        try {
+            const docRef = doc(db, "comments", id)
+            await deleteDoc(docRef)
+
+            setComments((comments) => comments.filter(comment => comment.id !== id))
+        } catch (err) {
+            console.log(err)
+        }
+    }
+
     return (
         <div className={styles.container}>
             <Head>
@@ -103,7 +114,7 @@ export default function Task({ task, allComments }: TaskProps) {
                         <div className={styles.headComment}>
                             <label className={styles.commentLabel}>{item.name}</label>
                             {item.user === session?.user?.email && (
-                                <button className={styles.buttonTrash}>
+                                <button className={styles.buttonTrash} onClick={() => deleteComment(item.id)}>
                                     <FaTrash size={18} color="#EA3140" />
                                 </button>
                             )}
